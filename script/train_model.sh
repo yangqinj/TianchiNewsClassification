@@ -19,6 +19,8 @@ N_SPLITS=1
 export PATHON_PATH=${SRC_DIR}
 cd ${SRC_DIR}
 
+
+
 python3 train.py \
     --train_path ${TRAIN_PATH} \
     --embedding_path ${EMBEDDING_FILE} \
@@ -26,4 +28,4 @@ python3 train.py \
     --model_dir ${MODEL_DIR} \
     --nsplits ${N_SPLITS} \
     --config_dir ${CONFIG_DIR} \
-    --log_dir ${LOG_DIR}
+    --log_dir ${LOG_DIR} > ${CUR_DIR}/log_${MODEL}_$(date '+%Y%m%d%H%M%S') 2>&1 &

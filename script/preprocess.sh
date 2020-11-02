@@ -17,5 +17,6 @@ sed "s/3750//g; s/900//g; s/648//g" ${TEST_PATH} > ${PREPROCESSED_TEST_PATH}
 
 
 # remove label for train dataset
-sed 's/^[0-9]*//g' ${PREPROCESSED_TRAIN_PATH} > ${PREPROCESSED_TRAIN_PATH}
-cat ${PREPROCESSED_TRAIN_PATH} ${PREPROCESSED_TEST_PATH} > all_data.csv
+CORPUS_PATH=${DATA_DIR}/all_data.csv
+sed 's/^[0-9]*//g' ${PREPROCESSED_TRAIN_PATH} > ${CORPUS_PATH}
+cat ${PREPROCESSED_TEST_PATH} >> ${CORPUS_PATH}
