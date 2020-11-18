@@ -5,13 +5,14 @@
 """
 import argparse
 import os
+import pickle as pkl
 
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold, train_test_split
 import torch
 
 from logger import get_logger
-from model_utils import load_model_config, cal_metrics, cal_loss
+from model_utils import load_model_config
 
 logger = get_logger()
 
@@ -79,6 +80,7 @@ if __name__ == '__main__':
 
     logger.info("Loading training dataset from file {}".format(args.train_path))
     train_df = pd.read_csv(args.train_path, sep="\t")
+    train_df = train_df.sample(frac=1, axis=0)
 
     model_path = os.path.join(args.model_dir, "model_{}.model".format(args.model))
 
@@ -109,36 +111,42 @@ if __name__ == '__main__':
         from model_utils import load_model, train_model
 
         # split document to words
+        logger.info("Split words...")
         train_df["text_words"] = train_df["text"].apply(lambda x: x.split())
         X_train, y_train = train_df["text_words"], train_df["label"]
+        train_df.drop(columns=["text"], inplace=True)
 
         logger.info("Building dataset...")
         vocab2id = build_vocab(docs=X_train, min_count=config.min_count)
+        pkl.dump(vocab2id, open(os.path.join(args.model_dir, "vocab_{}.vocab".format(args.model)), "wb"))
         train_data = build_dataset(X_train, vocab2id, max_doc_len=config.max_doc_len)
+        train_df.drop(columns=["text_words"], inplace=True)
 
         logger.info("Loading embeddings...")
         embeddings = load_embeddings(args.embedding_path, vocab2id)
 
         device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-        model = load_model(config, args.model, embeddings, embeddings.shape[1], len(y_train.unique()), device=device)
-
         if args.nsplits > 1:
             SKF = StratifiedKFold(n_splits=args.nsplits, shuffle=True)
             for fold_idx, (train_idx, val_idx) in enumerate(SKF.split(X_train, y_train)):
                 logger.info("*" * 20 + "Training {}-fold...".format(fold_idx))
+
+                model = load_model(config, args.model, embeddings, embeddings.shape[1], len(y_train.unique()),
+                                   device=device)
 
                 train_iter = build_iterator(list(zip(train_data[train_idx], y_train[train_idx])), config.batch_size, device)
                 val_iter = build_iterator(list(zip(train_data[val_idx], y_train[val_idx])), config.batch_size, device)
 
                 train_model(config, model, args.log_dir, train_iter, val_iter, device)
         else:
+            model = load_model(config, args.model, embeddings, embeddings.shape[1], len(y_train.unique()),
+                               device=device)
             X_train_data, X_val_data, y_train_data, y_val_data = \
                 train_test_split(train_data, y_train, test_size=0.25, stratify=y_train)
             train_iter = build_iterator(list(zip(X_train_data, y_train_data)), config.batch_size, device)
             val_iter = build_iterator(list(zip(X_val_data, y_val_data)), config.batch_size, device)
 
-            train_model(config, model, args.log_dir, train_iter, val_iter,
-                        device, save_model=True, model_path=model_path)
+            train_model(config, model, args.log_dir, train_iter, val_iter, save_model=True, model_path=model_path)
 
 

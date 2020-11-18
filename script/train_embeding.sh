@@ -6,8 +6,6 @@ SRC_DIR=${PROJECT_DIR}/src
 DATA_DIR=${PROJECT_DIR}/data
 EMBEDDING_DIR=${PROJECT_DIR}/embeddings
 
-
-export PATHON_PATH=${SRC_DIR}
 cd ${SRC_DIR}
 
 python3 train_embeddings.py \

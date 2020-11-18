@@ -1,0 +1,6 @@
+easydict==1.9
+tensorboardX==2.1
+gensim
+fasttext
+pandas
+sklearn

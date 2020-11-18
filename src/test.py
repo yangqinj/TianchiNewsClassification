@@ -6,6 +6,8 @@
 import argparse
 import os
 import pandas as pd
+import pickle as pkl
+
 import torch
 
 from logger import get_logger
@@ -86,18 +88,19 @@ if __name__ == '__main__':
         logger.info("Testing model...")
         y_pred = test_model(model, X_test=test_df["text"].tolist())
     else:
-        from data_utils import build_vocab, build_dataset
+        from data_utils import build_dataset, build_iterator
         from model_utils import test_model
 
         test_df["text_words"] = test_df["text"].apply(lambda x: x.split())
-        vocab2id = build_vocab(test_df["text_words"], min_count=config.min_count)
+        vocab2id = pkl.load(open(os.path.join(args.model_dir, "vocab_{}.vocab".format(args.model)), "rb"))
         data = build_dataset(test_df["text_words"], vocab2id, max_doc_len=config.max_doc_len)
+        data_iter = build_iterator(data, config.batch_size, device)
 
         logger.info("Loading model from {}".format(model_path))
         model = torch.load(model_path)
 
         logger.info("Testing model...")
-        y_pred = test_model(model, torch.LongTensor(data), device)
+        y_pred = test_model(model, data_iter)
 
     test_df["label"] = y_pred
     test_df["label"].to_csv("predict_{}.csv".format(args.model), index=False, header="label")

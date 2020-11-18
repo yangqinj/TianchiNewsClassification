@@ -32,7 +32,8 @@ def build_vocab(docs, min_count=1):
             else:
                 vocab[w] += 1
 
-    vocab2id = {w: x for x, (w, cnt) in enumerate(vocab.items()) if cnt >= min_count}
+    vocab2id = {w: cnt for w, cnt in vocab.items() if cnt >= min_count}
+    vocab2id = {w: x for x, (w, cnt) in enumerate(vocab2id.items())}
     logger.info("Finish building vocabulary with size {}".format(len(vocab2id)))
 
     return vocab2id
@@ -48,7 +49,7 @@ def build_dataset(docs, vocab2id, max_doc_len):
         else:
             doc.extend([PAD] * (max_doc_len - len(doc)))
 
-        word_ids = [vocab2id.get(w, UNK) for w in doc]
+        word_ids = [vocab2id.get(w, vocab2id.get(UNK)) for w in doc]
         data.append(word_ids)
 
     logger.info("Finish building dataset with size {}".format(len(data)))
@@ -81,13 +82,14 @@ def load_embeddings(embedding_file, vocab2id):
 
 
 class DatasetIterator(object):
-    def __init__(self, data, batch_size, device, drop_last=False):
+    def __init__(self, data, batch_size, device, drop_last=False, test=False):
         self._data = data
         self._batch_size = batch_size
         self._device = device
         self._drop_last = drop_last
         self._residual = False
         self._index = 0
+        self._test = test
 
         self._n_batches = len(self._data) // self._batch_size
         if len(self._data) % self._batch_size != 0:
@@ -99,9 +101,13 @@ class DatasetIterator(object):
         return self._n_batches
 
     def _to_tensor(self, datas):
-        x = torch.LongTensor([d[0] for d in datas]).to(self._device)
-        y = torch.LongTensor([d[1] for d in datas]).to(self._device)
-        return x, y
+        if self._test:
+            x = torch.LongTensor(datas).to(self._device)
+            return x
+        else:
+            x = torch.LongTensor([d[0] for d in datas]).to(self._device)
+            y = torch.LongTensor([d[1] for d in datas]).to(self._device)
+            return x, y
 
     def __next__(self):
         if self._index == self._n_batches:
@@ -124,8 +130,8 @@ class DatasetIterator(object):
         return self
 
 
-def build_iterator(data, batch_size, device):
-    return DatasetIterator(data, batch_size, device)
+def build_iterator(data, batch_size, device, test=False):
+    return DatasetIterator(data, batch_size, device, test=test)
 
 
 def get_timedelta(start_time):

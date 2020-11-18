@@ -15,7 +15,7 @@ class Model(nn.Module):
                  num_classes,
                  config):
         super(Model, self).__init__()
-        self._embedding = nn.Embedding.from_pretrained(embeddings, freeze=False)
+        self._embedding = nn.Embedding.from_pretrained(embeddings, freeze=True)
         self._convs = nn.ModuleList(
             [nn.Conv2d(1, config.num_filters, (fs, embed_size)) for fs in config.filter_sizes]
         )

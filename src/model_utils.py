@@ -76,11 +76,13 @@ def evaluate_model(model, data_iter):
     return loss_total/len(data_iter), cal_metrics(labels_all, predict_all)
 
 
-def train_model(config, model, log_dir, train_iter, dev_iter, device, save_model=False, model_path=None):
+def train_model(config, model, log_dir, train_iter, dev_iter, save_model=False, model_path=None):
     start_time = time.time()
-    model.to(device)
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+                                                step_size=config.learning_rate_decay_step,
+                                                gamma=config.learning_rate_decay_rate)
     num_steps = 0
     dev_best_loss = float('inf')
     dev_best_step = 0
@@ -104,12 +106,13 @@ def train_model(config, model, log_dir, train_iter, dev_iter, device, save_model
                     train_acc, train_f1, train_class_acc = cal_metrics(true, predict)
                     dev_loss, (dev_acc, dev_f1, dev_class_acc) = evaluate_model(model, dev_iter)
 
-                    msg = 'Epoch: {:>4}/{:<4} Iter: {:>4}/{:<4}, train loss = {:>6.4f}, ' \
-                          'train acc: {:>6.4f}, train f1: {:>6.4f}, train class_acc: {}, ' \
-                          'dev loss = {:>6.4f}, dev acc = {:>6.4f}, dev f1: {:>6.4f}, ' \
-                          'dev class_acc: {}, Time: {}'
-                    logger.info(msg.format(epoch, config.epochs, x, len(train_iter), loss, train_acc,
-                                           train_f1, train_class_acc, dev_loss, dev_acc, dev_f1, dev_class_acc,
+                    msg = 'Epoch: {:>4}/{:<4} Iter: {:>4}/{:<4}, \ntrain loss = {:>6.4f}, ' \
+                          'acc: {:>6.4f}, f1: {:>6.4f}, class_acc: {}, ' \
+                          '\ndev loss = {:>6.4f}, acc = {:>6.4f}, f1: {:>6.4f}, ' \
+                          'class_acc: {}, Time: {}'
+                    logger.info(msg.format(epoch, config.epochs, x, len(train_iter),
+                                           loss, train_acc, train_f1, ", ".join(["{:.4f}".format(acc) for acc in train_class_acc]),
+                                           dev_loss, dev_acc, dev_f1, ", ".join(["{:.4f}".format(acc) for acc in dev_class_acc]),
                                            get_timedelta(start_time)))
 
                     writer.add_scalar("train/loss", loss.item(), num_steps)
@@ -135,6 +138,7 @@ def train_model(config, model, log_dir, train_iter, dev_iter, device, save_model
                         raise StopIteration('early stop for {} steps'.format(config.early_stop_step))
 
                     model.train()
+                scheduler.step()
 
     except StopIteration as e:
         logger.error(e)
@@ -146,14 +150,14 @@ def train_model(config, model, log_dir, train_iter, dev_iter, device, save_model
         torch.save(model, model_path)
 
 
-def test_model(model, datas, device):
-    model.to(device)
+def test_model(model, data_iter):
     model.eval()
     y_pred = []
     with torch.no_grad():
-        outputs = model(datas)
-        batch_pred = torch.max(outputs.data, 1)[1].cpu().numpy()
-        y_pred = y_pred + list(batch_pred)
+        for batch_data in data_iter:
+            outputs = model(batch_data)
+            batch_pred = torch.max(outputs.data, 1)[1].cpu().numpy()
+            y_pred = y_pred + list(batch_pred)
 
     return y_pred
 

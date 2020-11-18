@@ -14,8 +14,9 @@ class Model(nn.Module):
                  config):
         super(Model, self).__init__()
         self._embedding = nn.Embedding.from_pretrained(embeddings, freeze=False)
-        self._lstm = nn.LSTM(embed_size, config.hidden_size, config.num_layers,
-                             bidirectional=True, batch_first=True, dropout=config.dropout)
+        self._lstm = nn.LSTM(input_size=embed_size, hidden_size=config.hidden_size,
+                             num_layers=config.num_layers, bidirectional=True,
+                             batch_first=True, dropout=config.dropout)
         self._fc = nn.Linear(config.hidden_size * 2, num_classes)
 
     def forward(self, x):
